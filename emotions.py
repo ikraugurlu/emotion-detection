@@ -4,6 +4,9 @@ import time
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
+import re
+import json
+
 model_path = """C:/Users/LENOVO/Desktop/PROJEM-aty/face_landmarker.task"""
 
 BaseOptions = mp.tasks.BaseOptions
@@ -12,10 +15,37 @@ FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
 FaceLandmarkerResult = mp.tasks.vision.FaceLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
 
+# Düzenli ifade (regex) ile x, y, z değerlerini ayıklama
+
 # Create a callback function for the face landmarker
 def print_result(result: FaceLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
-    print('face landmarker result: {}'.format(result))
+    pattern = r"NormalizedLandmark\(x=(.*?), y=(.*?), z=(.*?),"
+    matches = re.findall(pattern,result)
 
+    # Ayıklanan verileri JSON formatına uygun hale getirme
+    landmarks = []
+    for idx, (x, y, z) in enumerate(matches, start=1):
+        landmarks.append({
+            "id": idx,
+            "x": float(x),
+            "y": float(y),
+            "z": float(z)
+        })
+
+    # Sonuç yapısı
+    _result = {
+        "face_landmarks": landmarks,
+        "face_blendshapes": [],
+        "facial_transformation_matrixes": []
+    }
+    json_result = json.dumps(_result, indent=4)
+
+
+    # JSON çıktısını dosyaya kaydetme (isteğe bağlı)
+    with open("face_landmarks.json", "w") as f:
+        f.write(json_result)
+
+# print result içinde hata var!!
 options = FaceLandmarkerOptions(
     base_options=BaseOptions(model_asset_path=model_path),
     running_mode=VisionRunningMode.LIVE_STREAM,
