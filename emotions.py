@@ -18,32 +18,37 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 # Düzenli ifade (regex) ile x, y, z değerlerini ayıklama
 
 # Create a callback function for the face landmarker
+# Global veri yapısı
+landmark_history = {}
+
 def print_result(result: FaceLandmarkerResult, output_image: mp.Image, timestamp_ms: int):
-    pattern = r"NormalizedLandmark\(x=(.*?), y=(.*?), z=(.*?),"
-    matches = re.findall(pattern,result)
+    global landmark_history
 
-    # Ayıklanan verileri JSON formatına uygun hale getirme
-    landmarks = []
-    for idx, (x, y, z) in enumerate(matches, start=1):
-        landmarks.append({
-            "id": idx,
-            "x": float(x),
-            "y": float(y),
-            "z": float(z)
-        })
+    for face_landmarks in result.face_landmarks:
+        for i, landmark in enumerate(face_landmarks):
+            point = {
+                "x": landmark.x,
+                "y": landmark.y,
+                "z": landmark.z,
+                "timestamp_ms": timestamp_ms
+            }
 
-    # Sonuç yapısı
-    _result = {
-        "face_landmarks": landmarks,
-        "face_blendshapes": [],
-        "facial_transformation_matrixes": []
-    }
-    json_result = json.dumps(_result, indent=4)
+            if i not in landmark_history:
+                landmark_history[i] = []
 
+            landmark_history[i].append(point)
 
-    # JSON çıktısını dosyaya kaydetme (isteğe bağlı)
-    with open("face_landmarks.json", "w") as f:
+    # JSON çıktısını oluştur
+    json_result = json.dumps(landmark_history, indent=4)
+
+    # Konsola kısa bilgi yaz (isteğe bağlı)
+    print(f"Frame işlendi. Landmark 1 toplam {len(landmark_history.get(1, []))} değer içeriyor.")
+
+    # Dosyaya kaydet (her frame'de güncellenmiş haliyle)
+    with open("uzgun.json", "w") as f:
         f.write(json_result)
+
+
 
 # print result içinde hata var!!
 options = FaceLandmarkerOptions(
@@ -54,6 +59,7 @@ options = FaceLandmarkerOptions(
 cap = cv2.VideoCapture(0)
 
 with FaceLandmarker.create_from_options(options) as landmarker:
+    
     # Used to calculate FPS
     previous_frame_time = 0
     current_frame_time = 0
@@ -63,6 +69,7 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         if not success:
             print("Ignoring empty camera frame.")
             continue
+
             
         # Convert the frame to RGB for MediaPipe
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -73,6 +80,7 @@ with FaceLandmarker.create_from_options(options) as landmarker:
         timestamp_ms = int(time.time() * 1000)
         landmarker.detect_async(mp_image, timestamp_ms)
         
+       
        
         # Calculate FPS
         current_frame_time = time.time()
