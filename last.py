@@ -1,3 +1,4 @@
+import random
 import mediapipe as mp
 import cv2
 import time
@@ -17,7 +18,49 @@ FaceLandmarker = mp.tasks.vision.FaceLandmarker
 FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
 FaceLandmarkerResult = mp.tasks.vision.FaceLandmarkerResult
 VisionRunningMode = mp.tasks.vision.RunningMode
+last_suggest_time = 0
+last_suggested_mode = None
+cooldown_seconds = 3  # Bekleme süresi (saniye)
 
+def SelectSong(mode):
+    global last_suggest_time, last_suggested_mode
+
+    current_time = time.time()
+    mode = mode.lower()
+
+    playlists = {
+        "happy": [
+            "https://open.spotify.com/playlist/1q37jGfzR84vTyzMyiKHPi?si=49f1c6b52f0a4423"
+        ],
+        "sad": [
+            "https://open.spotify.com/playlist/5xSC33HewmsgPkN0AWdfk4?si=5eb31b4d0c784c7d"
+        ],
+        "excited": [
+            "https://open.spotify.com/playlist/3402znNjPIG0gNO2HeY5ie?si=dc002c96ba7f45fe"
+        ]
+    }
+
+    # Geçerli duygu sistemde tanımlı değilse
+    if mode not in playlists:
+        print("Sorry, I don't have a playlist for that mood.")
+        return
+
+    # Delay süresi dolmamışsa
+    if current_time - last_suggest_time < cooldown_seconds:
+        remaining = int(cooldown_seconds - (current_time - last_suggest_time))
+        print(f"Lütfen {remaining} saniye bekleyin.")
+        return
+
+    # Delay dolmuş ama duygu aynıysa
+    if mode == last_suggested_mode:
+        print(f"Duygu aynı olduğu için yeni öneri yapılmadı. ({mode})")
+        return
+
+    # Yeni öneri yapılabilir
+    selected_playlist = random.choice(playlists[mode])
+    print(f"Your {mode} playlist: {selected_playlist}")
+    last_suggest_time = current_time
+    last_suggested_mode = mode
 # Facial landmark groups for feature extraction
 LANDMARK_GROUPS = {
     'left_eyebrow': [70, 63, 105, 66, 107],
@@ -567,6 +610,11 @@ def main():
                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 165, 0), 2)
                 cv2.putText(mirror, f"Confidence: {emotion_confidence:.2f}", (10, 90), 
                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 165, 0), 2)
+                
+                # buraya  current_emotion durumna göre print müzik listesi  rastgele gelecek
+
+                SelectSong(current_emotion)
+
             
             # Display image
             cv2.imshow("Emotion Recognition", mirror)
